@@ -1,0 +1,85 @@
+heat_template_version: 2014-10-16
+
+description: deploy base network for windows service.
+
+parameters:
+  vpc_name:
+    description: name of vpc
+    type: string
+
+  vpc_cidr:
+    description: cidr of vpc
+    type: string
+    constraints:
+      - custom_constraint: net_cidr
+
+  public_subnet_cidr:
+    description: cidr of public subnet
+    type: string
+    constraints:
+      - custom_constraint: net_cidr
+
+  private_subnet_cidr:
+    description: cidr of private subnet
+    type: string
+    constraints:
+      - custom_constraint: net_cidr
+
+  key_name:
+    type: string
+    description: Name of a KeyPair
+
+resources:
+  router:
+    type: OS::Neutron::Router
+    properties:
+      name: {get_param: vpc_name}
+      external_gateway_info: { network: admin_external_net, enable_snat: false }
+
+  net:
+    type: OS::Neutron::Net
+
+  public_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: net }
+      cidr:
+      dns_nameservers: [ "8.8.8.8", "8.8.4.4" ]
+      ip_version: 4
+
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: net }
+      cidr: "10.8.1.0/24"
+      dns_nameservers: [ "8.8.8.8", "8.8.4.4" ]
+      ip_version: 4
+
+  subnet1_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router1 }
+      subnet: private-subnet
+
+  inst1:
+    type: OS::Nova::Server
+    properties:
+      flavor: m1.small
+      image: ubuntu-trusty-x86_64
+      networks:
+        - network: {get_param: net}
+
+  floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: admin_external_net
+
+  association:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_resource: floating_ip }
+      port_id: {get_attr: [inst1, addresses, {get_param: net}, 0, port]}
+
+outputs:
+
+condition:

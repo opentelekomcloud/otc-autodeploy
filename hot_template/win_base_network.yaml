@@ -1,0 +1,121 @@
+heat_template_version: 2014-10-16
+
+description: deploy base network for windows service.
+
+parameters:
+  vpc_name:
+    description: name of vpc
+    type: string
+
+  vpc_cidr:
+    description: cidr of vpc
+    type: string
+    constraints:
+      - custom_constraint: net_cidr
+
+  public_subnet_cidr:
+    description: cidr of public subnet
+    type: string
+    constraints:
+      - custom_constraint: net_cidr
+
+  private_subnet_cidr:
+    description: cidr of private subnet
+    type: string
+    constraints:
+      - custom_constraint: net_cidr
+
+  nat_private_ip:
+    description: private ip of nat server
+    type: string
+
+  custom_route:
+    description: custom route of vpc
+    type: json
+
+  key_name:
+    type: string
+    description: Name of a KeyPair
+
+resources:
+  router:
+    type: OS::Neutron::Router
+    properties:
+      name: {get_param: vpc_name}
+      external_gateway_info: { network: admin_external_net, enable_snat: false }
+      value_specs: {get_param: custom_route}
+
+  net:
+    type: OS::Neutron::Net
+
+  public_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: net }
+      cidr: {get_param: public_subnet_cidr}
+      dns_nameservers: [ "100.125.4.25", "8.8.8.8" ]
+      ip_version: 4
+
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: net }
+      cidr: {get_param: private_subnet_cidr}
+      dns_nameservers: [ "100.125.4.25", "8.8.8.8" ]
+      ip_version: 4
+
+  public_subnet_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router }
+      subnet: public_subnet
+
+  private_subnet_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router }
+      subnet: private_subnet
+
+  public_sg:
+    type: OS::Neutron:SecurityGroup
+    properties:
+      name: public_sg
+
+  private_sg:
+    type: OS:Neutron:SecurityGroup
+    properties:
+      name: private_sg
+
+  nat_port:
+    type: OS::Neutron::Port
+    properties:
+      name: nat_port
+      network_id: {get_resource: net}
+      security_groups: [{get_resource: public_sg}]
+      fixed_ips: [{subnet: public_subnet, ip_address: {get_param: nat_private_ip}}]
+
+  nat_inst:
+    type: OS::Nova::Server
+    properties:
+      flavor: s1.medium
+      image: Community_Ubuntu_16.04_TSI_20170630
+      name: "NAT Server"
+      key_name: {get_param: key_name}
+      networks:
+        - port: {get_resource: nat_port}
+
+  floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: admin_external_net
+
+  association:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_resource: floating_ip }
+      port_id: {get_resource: nat_port}
+
+outputs:
+  nat_eip:
+    description: The elastic ip address of nat server.
+    value: {get_attr: [floating_ip, floating_ip_address]}
