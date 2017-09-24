@@ -1,10 +1,10 @@
-import time
 import ipaddr
+import time
 
-import cfg
-from log import LOG
-from otc_conn import OTC
-from deploy_base_server import deploy_nat
+import src.cfg as cfg
+from src.log import LOG
+from src.otc_manager import OTC
+from src.deploy_base_server import deploy_nat
 
 CONF = cfg.CONF
 
@@ -83,7 +83,72 @@ def deploy_subnet(vpc, name, cidr):
 
 
 def undelpoy_vpc():
-    pass
+    if not OTC.router:
+        print "vpc is not exist."
+        return
+
+    networks = OTC.cloud.list_networks(
+        filters={'name': OTC.router.id}
+    )
+
+
+    servers = OTC.cloud.search_servers(filters={'user_id': OTC.user_id})
+    for server in servers:
+        volumes = OTC.cloud.get_volumes(server)
+
+        print "delete server %s %s" % (server.name, server.id)
+        OTC.cloud.delete_server(server.id)
+
+        while True:
+            if not OTC.cloud.get_server(server.id):
+                break
+            time.sleep(2)
+
+        for volume in volumes:
+            print "delete volume %s" % volume.name
+            OTC.cloud.delete_volume(volume.id)
+
+
+    fips = OTC.cloud.search_floating_ips(filters={
+        'tenant_id': OTC.project_id,
+        'router_id': OTC.router.id
+    })
+    for fip in fips:
+        print "delete floating ip %s" % fip
+        OTC.cloud.delete_floating_ip(fip.id)
+
+
+    ports = []
+    for network in networks:
+        nw_ports = OTC.cloud.list_ports(
+            filters={'tenant_id': OTC.project_id,
+                     'network_id': network.id}
+        )
+        if nw_ports:
+            ports = ports + nw_ports
+
+    for port in ports:
+        if port.device_owner == 'network:router_interface_distributed':
+            OTC.cloud.remove_router_interface({'id': port.device_id},
+                                              port_id=port.id)
+        elif port.device_owner == 'network:dhcp':
+            continue
+        else:
+            OTC.cloud.delete_port(port.id)
+
+
+    for network in networks:
+        subnets = OTC.cloud.search_subnets(filters={"network_id": network.id})
+        for subnet in subnets:
+            OTC.cloud.delete_subnet(subnet.id)
+
+        print "delete network %s" % network.name
+        OTC.cloud.delete_network(network.id)
+
+
+    print "delete router %s" % OTC.router.name
+    OTC.cloud.delete_router(OTC.router.id)
+
 #
 #    router = OTC.conn.network.find_router(CONF.vpc_name)
 #    if not router:

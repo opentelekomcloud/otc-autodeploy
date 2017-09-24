@@ -1,9 +1,9 @@
 import ipaddr
 
-import cfg
-from rts import RTS
-from deploy_vpc import deploy_win_base_vpc, undelpoy_vpc
-from deploy_base_server import deploy_adds, deploy_rdgw
+import src.cfg as cfg
+from src.rts import RTS
+from src.deploy_vpc import deploy_win_base_vpc, undelpoy_vpc
+from src.deploy_base_server import deploy_adds, deploy_rdgw
 
 CONF = cfg.CONF
 

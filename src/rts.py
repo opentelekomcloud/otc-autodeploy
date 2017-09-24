@@ -1,7 +1,7 @@
 import os
 import json
 
-from otc_conn import OTC
+from otc_manager import OTC
 
 
 class RTS(object):
