@@ -2,8 +2,8 @@ import ipaddr
 
 import src.cfg as cfg
 from src.rts import RTS
-from src.deploy_vpc import deploy_win_base_vpc, undelpoy_vpc
-from src.deploy_base_server import deploy_adds, deploy_rdgw
+from src.deploy_vpc import deploy_vpc
+from src.deploy_base_server import deploy_nat, deploy_adds, deploy_rdgw
 
 CONF = cfg.CONF
 
@@ -30,17 +30,31 @@ def __check_para():
     pass
 
 
+def deploy_win_base_vpc():
+    vpc = deploy_vpc()
+
+    public_subnet_cidr, private_subnet_cidr = vpc.cidr.subnet(new_prefix=24)[
+                                                              0:2]
+
+    pub_net, pub_subnet = vpc.add_subnet("public", public_subnet_cidr)
+    vpc.add_subnet("private", private_subnet_cidr)
+
+    if CONF.nat:
+        nat_ip = str(list(public_subnet_cidr.iterhosts())[1])
+
+        deploy_nat(vpc, pub_net.id, nat_ip)
+        # vpc.add_custom_route(nat_ip)
+
+    return vpc
+
+
 def deploy():
     __check_para()
     vpc = deploy_win_base_vpc()
-    deploy_adds(vpc, CONF.key_name, CONF.domain_name, CONF.domain_netbios_name,
-                CONF.restore_passwd, CONF.domain_admin_user,
-                CONF.domain_admin_passwd, flavor=CONF.adds_flavor)
-    deploy_rdgw(vpc, CONF.key_name, CONF.domain_name, flavor=CONF.rdgw_flavor)
-
-
-def undeploy():
-    undelpoy_vpc()
+#    deploy_adds(vpc, CONF.key_name, CONF.domain_name, CONF.domain_netbios_name,
+#                CONF.restore_passwd, CONF.domain_admin_user,
+#                CONF.domain_admin_passwd, flavor=CONF.adds_flavor)
+#    deploy_rdgw(vpc, CONF.key_name, CONF.domain_name, flavor=CONF.rdgw_flavor)
 
 
 def rts_deploy(template_name):

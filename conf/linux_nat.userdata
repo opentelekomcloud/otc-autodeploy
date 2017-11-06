@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+sudo apt-get update
+sudo iptables -t nat -A POSTROUTING -o eth0 -s %s -j SNAT --to %s
+sudo iptables-save > /etc/iptables.rules
+sudo touch /etc/network/if-pre-up.d/iptables
+sudo chmod +x /etc/network/if-pre-up.d/iptables
+sudo bash -c "cat>>/etc/network/if-pre-up.d/iptables"<<END_TEXT
+#!/bin/bash
+iptables -F
+iptables-restore /etc/iptables.rules
+END_TEXT

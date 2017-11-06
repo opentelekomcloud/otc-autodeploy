@@ -1,49 +1,71 @@
+import os
 import base64
 from src.otc_manager import OTC
+import src.cfg as cfg
+import subprocess
+import pprint
+
+CONF = cfg.CONF
 
 
-def deploy_server(name, image, flavor, key_name, userdata, sg_name, disk_size, eip=False):
-    image = OTC.conn.compute.find_image(image)
-    flavor = OTC.conn.compute.find_flavor(flavor)
+def deploy_server(name, image_name, flavor_name, key_name, userdata, sg_name,
+                  disk_size, network_id, az='eu-de-01', eip=False):
+    print ">>> deploy server %s" % name,
 
-    server_args = {
-        'name': name,
-        'image': image,
-        'flavor': flavor,
-        'key_name': key_name,
-        'user_data': userdata,
-        'security_groups': [{'name': sg_name}]
-    }
+#    image = OTC.cloud.get_image(image_name)
+#    flavor = OTC.cloud.get_flavor(flavor_name)
 
-    server = OTC.conn.compute.create_server(**server_args)
-    OTC.conn.compute.wait_for_server(server)
+#    server_args = {
+#        'name': name,
+#        'image': image,
+#        'flavor': flavor,
+#        'key_name': key_name,
+#        'userdata': userdata,
+#        'security_groups': [{'name': sg_name}],
+#        'network': network,
+#    }
+#
+#    server = OTC.cloud.create_server(wait=True, **server_args)
 
-    if eip:
-        ports = OTC.conn.network.ports(device_id=server.id)
-        external_network = OTC.conn.network.find_network('admin_external_net')
-        OTC.conn.network.create_ip(floating_network_id=external_network.id,
-                                port_id=ports[0].id)
+#    p = subprocess.Popen(["nova", "--debug", "boot", "--flavor", flavor['id'],
+#                          "--image", image['id'], "--availability-zone", az,
+#                          "--security-group", sg_name, '--key-name', key_name,
+#                          "--user-data", "./conf/linux_nat.userdata"
+#                          "--nic", "net-id=%s" % (network_id), name],
+#                         env=os.environ.copy(),
+#                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+#                         shell=True)
+#    (stdout, stderr) = p.communicate()
+#
+#    server_id = None
+#    output = stdout.splitlines()
+#    for line in output:
+#        v = [n.strip() for n in line.split('|') if n]
+#        if v[0].lower() == 'id':
+#            server_id = v[1]
+#            break
+#    if not server_id:
+#        print "create server fail"
+#        raise Exception
+#
+#    server = OTC.cloud.get_server(server_id)
+#
+#    if eip:
+#        external_network = OTC.cloud.search_networks('admin_external_net')
+#        OTC.cloud.create_floating_ip(network=external_network[0].id,
+#                                     wait=True)
+#        print OTC.cloud.add_auto_ip(server)
 
-    volume = OTC.conn.block_store.create_volume(name=name,
-                                                size=disk_size)
-    OTC.conn.block_store.wait_for_status(volume,
-                                         status='available',
-                                         failures=['error'],
-                                         interval=2,
-                                         wait=120)
-    OTC.conn.compute.create_volume_attachment(server,
-                                              vloume_id=volume.id)
-    OTC.conn.block_store.wait_for_status(volume,
-                                         status='in-use',
-                                         failures=['error'],
-                                         interval=2,
-                                         wait=120)
-
-    return server
+    # volume = OTC.cloud.create_volume(name=name,
+    #                                  size=disk_size,
+    #                                  wait=True,
+    #                                  timeout=120)
+    # OTC.cloud.attach_volume(server, volume, wait=True, timeout=120)
+    print "OK >>>"
+    return
 
 
-def deploy_nat(vpc, nat_ip, key_name, image="Community_Ubuntu_16.04_TSI_20170630",
-               flavor="s1.medium", sg_name="default"):
+def deploy_nat(vpc, network_id, nat_ip):
     # create nat server
     name = vpc.name + '-NAT-server'
     userdata = '''#!/usr/bin/env bash
@@ -60,16 +82,17 @@ def deploy_nat(vpc, nat_ip, key_name, image="Community_Ubuntu_16.04_TSI_20170630
     ''' % (vpc.cidr, str(nat_ip))
     userdata_b64str = base64.b64encode(userdata)
 
-    return deploy_server(name, image, flavor, key_name,
-                         userdata_b64str, sg_name, 40, eip=True)
+    image_name = "Community_Ubuntu_16.04_TSI_20170630"
+    flavor_name = CONF.nat_flavor if CONF.nat_flavor else "s1.medium"
+    sg_name = "default"
+
+    return deploy_server(name, image_name, flavor_name, CONF.key_name,
+                         userdata_b64str, sg_name, 40, network_id, eip=True)
 
 
-def deploy_adds(vpc, key_name, domain_name, domain_netbios_name,
-                restore_passwd, domain_admin_user, domain_admin_passwd,
-                image="Enterprise_Windows_STD_2012R2_20170809-0",
-                flavor="s1.large", sg_name="default"):
+def deploy_addc(vpc, network_id):
     # create adds
-    name = 'ADDS'
+    name = vpc.name + '-ADDC'
     userdata = '''
     #ps1_sysnative
     $ErrorActionPreference = 'Stop'
@@ -83,17 +106,20 @@ def deploy_adds(vpc, key_name, domain_name, domain_netbios_name,
     $safeModePwd = (ConvertTo-SecureString %s -AsPlainText -Force)
     Install-ADDSForest -DomainName %s -DomainNetbiosName %s -SafeModeAdministratorPassword %s -InstallDns -NoRebootOnCompletion -Force
     exit 1001
-    ''' % (name, restore_passwd, restore_passwd, domain_name, domain_netbios_name, restore_passwd )
+    ''' % (name, CONF.winapp.domain_admin_passwd, CONF.winapp.domain_admin_passwd,
+           CONF.winapp.domain_name, CONF.winapp.domain_netbios_name, CONF.winapp.domain_admin_passwd)
     userdata_b64str = base64.b64encode(userdata)
-    if True: return
 
-    return deploy_server(name, image, flavor, key_name,
-                         userdata_b64str, sg_name, 60)
+    image_name="Enterprise_Windows_STD_2012R2_20170809-0"
+    flavor_name="s1.large"
+    sg_name="default"
+    return deploy_server(name, image_name, flavor_name, CONF.key_name,
+                         userdata_b64str, sg_name, 60, network_id)
 
 
 def deploy_rdgw(vpc, key_name, domain_name,
-                image="Enterprise_Windows_STD_2012R2_20170809-0",
-                flavor="s1.large", sg_name="default"):
+                image_name="Enterprise_Windows_STD_2012R2_20170809-0",
+                flavor_name="s1.large", sg_name="default"):
     # create adds
     name = 'RDGW'
     userdata = '''
@@ -101,5 +127,5 @@ def deploy_rdgw(vpc, key_name, domain_name,
     userdata_b64str = base64.b64encode(userdata)
     if True: return
 
-    return deploy_server(name, image, flavor, key_name,
+    return deploy_server(name, image_name, flavor_name, key_name,
                          userdata_b64str, sg_name, 60, eip=True)
