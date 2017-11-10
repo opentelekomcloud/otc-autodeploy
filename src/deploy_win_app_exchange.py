@@ -81,7 +81,7 @@ def deploy_exchange_server(vpc, network_id):
     userdata_b64str = base64.b64encode(userdata)
 
     deploy_server(name, image_name, CONF.winapp.server_flavor, CONF.key_name,
-                  userdata_b64str, "default",
+                  userdata_b64str, '', "default",
                   CONF.winapp.server_disksize, network_id,
                   az='eu-de-01', eip=False)
 

@@ -13,7 +13,7 @@ cli_opts = [
     cfg.StrOpt('user-domain', required=True, help="User domain name."),
     cfg.StrOpt('key-name', help='Key name.'),
     cfg.StrOpt('deploy', metavar='{winapp-exchange|winapp-sp}',
-               choices=['winapp-exchange', 'winapp-sp'], help='Undeploy vpc.'),
+               choices=['winapp-exchange', 'winapp-sp'], help='Deploy.'),
     cfg.StrOpt('undeploy', metavar='{vpc}', help='Undeploy vpc.'),
     cfg.StrOpt("ha", metavar='{yes|no}', default='no', help="HA mode"),
     cfg.StrOpt("nat", metavar='{yes|no}', default='no', help="Deploy NAT server."),

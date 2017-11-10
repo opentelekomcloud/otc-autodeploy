@@ -4,11 +4,14 @@ from src.otc_manager import OTC
 import src.cfg as cfg
 import subprocess
 import pprint
+from src.const import CONF_PATH
+
 
 CONF = cfg.CONF
 
 
-def deploy_server(name, image_name, flavor_name, key_name, userdata, sg_name,
+def deploy_server(name, image_name, flavor_name, key_name, userdata,
+                  userdata_file, sg_name,
                   disk_size, network_id, az='eu-de-01', eip=False):
     print ">>> deploy server %s" % name,
 
@@ -27,10 +30,11 @@ def deploy_server(name, image_name, flavor_name, key_name, userdata, sg_name,
 #
 #    server = OTC.cloud.create_server(wait=True, **server_args)
 
+#    userdata_file = os.path.join(CONF_PATH, userdata_file)
 #    p = subprocess.Popen(["nova", "--debug", "boot", "--flavor", flavor['id'],
 #                          "--image", image['id'], "--availability-zone", az,
 #                          "--security-group", sg_name, '--key-name', key_name,
-#                          "--user-data", "./conf/linux_nat.userdata"
+#                          "--user-data", userdata_file,
 #                          "--nic", "net-id=%s" % (network_id), name],
 #                         env=os.environ.copy(),
 #                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -55,12 +59,12 @@ def deploy_server(name, image_name, flavor_name, key_name, userdata, sg_name,
 #        OTC.cloud.create_floating_ip(network=external_network[0].id,
 #                                     wait=True)
 #        print OTC.cloud.add_auto_ip(server)
-
-    # volume = OTC.cloud.create_volume(name=name,
-    #                                  size=disk_size,
-    #                                  wait=True,
-    #                                  timeout=120)
-    # OTC.cloud.attach_volume(server, volume, wait=True, timeout=120)
+#
+#    volume = OTC.cloud.create_volume(name=name,
+#                                     size=disk_size,
+#                                     wait=True,
+#                                     timeout=120)
+#    OTC.cloud.attach_volume(server, volume, wait=True, timeout=120)
     print "OK >>>"
     return
 
@@ -87,7 +91,8 @@ def deploy_nat(vpc, network_id, nat_ip):
     sg_name = "default"
 
     return deploy_server(name, image_name, flavor_name, CONF.key_name,
-                         userdata_b64str, sg_name, 40, network_id, eip=True)
+                         userdata_b64str, 'linux_nat.userdata',
+                         sg_name, 40, network_id, eip=True)
 
 
 def deploy_addc(vpc, network_id):
@@ -114,7 +119,7 @@ def deploy_addc(vpc, network_id):
     flavor_name="s1.large"
     sg_name="default"
     return deploy_server(name, image_name, flavor_name, CONF.key_name,
-                         userdata_b64str, sg_name, 60, network_id)
+                         userdata_b64str, 'addc.userdata', sg_name, 60, network_id)
 
 
 def deploy_rdgw(vpc, key_name, domain_name,
