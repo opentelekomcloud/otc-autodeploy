@@ -15,7 +15,7 @@ pip install python-openstackclient
 
 **Command**
 1. show  
-    `python autodeploy.py --config-file ./conf/user.conf --show {flavor|image|az}     
+    `python autodeploy.py --config-file ./conf/user.conf --show {flavor|image|az}`  
 Example:
 ```
 > python autodeploy.py --config-file ./conf/user.conf --show flavor
@@ -28,9 +28,9 @@ Example:
 ......
 ```
 2. deploy  
-You can fill the parameters in the conf file or the command line.
-`python autodeploy.py --config-file ./conf/winapp-exchange.conf`
-In this example, we have filled all parameters in the conf file like this:
+You can fill the parameters in the conf file or the command line.  
+`python autodeploy.py --config-file ./conf/winapp-exchange.conf`  
+In this example, we have filled all parameters in the conf file like this:  
 
 ```
 [DEFAULT]
@@ -72,9 +72,9 @@ Then you can find the network and servers form the console on OTC.
 
 
 3. undeploy  
-`python autodeploy.py --config-file ./conf/user.conf --undeploy vpc --vpc-name exchange-test`
+`python autodeploy.py --config-file ./conf/user.conf --undeploy vpc --vpc-name exchange-test`  
 
-After the command, you can see:
+After the command, you can see:  
 
 ```
 >>> Connection OK
