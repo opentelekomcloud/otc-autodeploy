@@ -14,7 +14,7 @@ pip install python-openstackclient
 2. Enjoy yourself.
 
 **Command**
-1. show
+1. show  
     `python autodeploy.py --config-file ./conf/user.conf --show {flavor|image|az}     
 Example:
 ```
@@ -27,7 +27,7 @@ Example:
 |      c1.large      |  2   |  2 GiB  | 0 bytes  |  False   |  True  |
 ......
 ```
-2. deploy
+2. deploy  
 You can fill the parameters in the conf file or the command line.
 `python autodeploy.py --config-file ./conf/winapp-exchange.conf`
 In this example, we have filled all parameters in the conf file like this:
@@ -71,7 +71,7 @@ Deploy windows exchange end.
 Then you can find the network and servers form the console on OTC.
 
 
-3. undeploy
+3. undeploy  
 `python autodeploy.py --config-file ./conf/user.conf --undeploy vpc --vpc-name exchange-test`
 
 After the command, you can see:
