@@ -5,8 +5,9 @@ from src.otc_manager import OTC
 import src.cfg as cfg
 
 show_cli_opts = [
-    cfg.StrOpt("show", metavar='{flavor|image|az}', choices=['flavor', 'image', 'az'],
-               help="show [ flavor | image | az ]"),
+    cfg.StrOpt("show", metavar='{flavor|image|az|sg}',
+               choices=['flavor', 'image', 'az', 'sg'],
+               help="show [ flavor | image | az | sg ]"),
 ]
 
 
@@ -66,3 +67,21 @@ class Show(object):
         for az in azs:
             t.add_row([az])
         print t
+
+    @staticmethod
+    def sg():
+        sgs = OTC.cloud.list_security_groups()
+
+
+        for sg in sgs:
+            print '+' + '-' * 81 + '+'
+            print '  name:        ' + sg['name']
+            print '  description: ' + sg['description']
+
+            t = PrettyTable(['direction', 'type', 'protocol', 'port-range', 'remote-end'])
+            for rule in sg['security_group_rules']:
+                t.add_row([str(rule['direction']), str(rule['ethertype']),
+                        str(rule['protocol']),
+                        str(rule['port_range_min']) + '-' + str(rule['port_range_max']),
+                        str(rule['remote_group_id'])])
+            print t

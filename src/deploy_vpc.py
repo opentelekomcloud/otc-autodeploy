@@ -8,12 +8,15 @@ from src.otc_manager import OTC
 from src.deploy_base_server import deploy_nat
 from src.excepts import DeployException
 
+
 CONF = cfg.CONF
 
 cli_opts = [
     cfg.StrOpt('vpc-name', help='VPC name.'),
     cfg.StrOpt('vpc-cidr', help='Available Network Segment: 10.0.0.0/8-24, \
               172.16.0.0/12-24, and 192.168.0.0/16-24.'),
+    cfg.StrOpt('vpc-enable-snat', metavar='{yes|no}', default='yes',
+               help='Enable SNAT on VPC.'),
 ]
 
 
@@ -58,9 +61,38 @@ class Vpc(object):
         print 'OK >>>'
         return network, subnet
 
+    def add_sg(self, name, desc=''):
+        sg = OTC.cloud.get_security_group(name)
+        if sg is None:
+            sg = OTC.cloud.create_security_group(name, desc)
+        return sg
+
+    def add_sg_rule(self, sg_id, port_range_min=None, port_range_max=None,
+                    protocol=None, remote_ip_prefix=None, remote_group_id=None,
+                    direction='ingress', ethertype='IPv4'):
+        try:
+            rule = OTC.cloud.create_security_group_rule(
+                sg_id,
+                port_range_min=port_range_min,
+                port_range_max=port_range_max,
+                protocol=protocol,
+                remote_ip_prefix=remote_ip_prefix,
+                remote_group_id=remote_group_id,
+                direction=direction,
+                ethertype=ethertype)
+        except Exception as e:
+            if -1 == e.message.find('rule already exists'):
+                print e.message
+
+        return
 
 def deploy_vpc():
     print '>>> deploy vpc ' + CONF.vpc_name,
+
+    enable_snat = False
+    if CONF.vpc_enable_snat:
+        enable_snat = True
+
     vpc = Vpc(CONF.vpc_name, CONF.vpc_cidr)
 
     router = OTC.cloud.get_router(CONF.vpc_name)
@@ -69,7 +101,8 @@ def deploy_vpc():
 
     # create a router
     router = OTC.cloud.create_router(
-        name=CONF.vpc_name
+        name=CONF.vpc_name,
+        enable_snat=enable_snat
     )
     vpc.router = router
 
@@ -98,46 +131,49 @@ def undeploy_vpc():
         if nw_ports:
             ports = ports + nw_ports
 
+    router_interfaces = []
+    servers = []
     for port in ports:
         if port.device_owner == 'network:router_interface_distributed':
-            print "remove router interface %s" % port.id
-            OTC.cloud.remove_router_interface({'id': port.device_id},
-                                              port_id=port.id)
+            router_interfaces.append(port.id)
         elif port.device_owner == 'network:dhcp':
             continue
         elif port.device_owner[0:8] == 'compute:':
-            servers = OTC.cloud.search_servers(filters={'user_id': OTC.user_id})
-            for server in servers:
-                fips = OTC.cloud.search_floating_ips(filters={
-                    'port_id': port.id
-                })
-                if fips:
-                    fip = fips[0]
-                    print "delete floating ip %s" % fip
-                    OTC.cloud.detach_ip_from_server(server.id, fip.id)
-                    OTC.cloud.delete_floating_ip(fip.id)
+            server = OTC.cloud.get_server(port.device_id)
+            server_networks = server['addresses'].keys()
+            if not (set(network_names) & set(server_networks)):
+                continue
+            servers.append(server)
 
-                server_networks = server['addresses'].keys()
-                if not (set(network_names) & set(server_networks)):
-                    print "can not delete server %s %s" % (server.name, server.id)
-                    continue
-
-                print "delete server %s %s" % (server.name, server.id)
-                OTC.cloud.delete_server(server.id)
-
-                while True:
-                    if not OTC.cloud.get_server(server.id):
-                        break
-                    time.sleep(2)
-
-                volumes = OTC.cloud.get_volumes(server)
-                for volume in volumes:
-                    print "delete volume %s" % volume.name
-                    OTC.cloud.delete_volume(volume.id)
+            fips = OTC.cloud.search_floating_ips(filters={
+                'port_id': port.id
+            })
+            for fip in fips:
+                print "delete floating ip %s" % fip.floating_ip_address
+                OTC.cloud.detach_ip_from_server(server.id, fip.id)
+                OTC.cloud.delete_floating_ip(fip.id)
         else:
             print "delete port %s" % port.id
             OTC.cloud.delete_port(port.id)
 
+    for s in servers:
+        print "delete server %s %s" % (s.name, s.id)
+        OTC.cloud.delete_server(s.id)
+
+        while True:
+            if not OTC.cloud.get_server(s.id):
+                break
+            time.sleep(2)
+
+        volumes = OTC.cloud.get_volumes(s)
+        for volume in volumes:
+            print "delete volume %s" % volume.name
+            OTC.cloud.delete_volume(volume.id)
+
+    for router_interface in router_interfaces:
+        print "remove router interface %s" % router_interface
+        OTC.cloud.remove_router_interface(OTC.router,
+                                          port_id=router_interface)
 
     for network in networks:
         subnets = OTC.cloud.search_subnets(filters={"network_id": network.id})
@@ -152,74 +188,3 @@ def undeploy_vpc():
     print "delete router %s" % OTC.router.name
     OTC.cloud.delete_router(OTC.router.id)
     print 'OK >>>'
-
-#
-#    router = OTC.conn.network.find_router(CONF.vpc_name)
-#    if not router:
-#        return
-#
-#    servers = set()
-#    networks = OTC.conn.network.networks(name=router.id)
-#    for network in networks:
-#        print "network id:", network.id
-#        ports = OTC.conn.network.ports(network_id=network.id)
-#        for port in ports:
-#            fips = OTC.conn.network.ips(port_id=port.id)
-#            for fip in fips:
-#                OTC.conn.network.delete_ip(fip)
-#                print "delete fip:", fip
-#
-#        ports = OTC.conn.network.ports(network_id=network.id)
-#        for port in ports:
-#            if port.device_id == router.id:
-#                #OTC.conn.network.remove_interface_from_router(router,
-#                #                                              port_id=port.id)
-#                print "remove router interface:", port
-#            if port.device_owner[0:8] == "compute:" \
-#                    and port.device_id != "":
-#                servers.add(port.device_id)
-#
-#            #OTC.conn.network.delete_port(port)
-#
-#    for sid in servers:
-#        server = OTC.conn.compute.find_server(sid, ignore_missing=True)
-#        if server is None:
-#            continue
-#        #OTC.conn.compute.stop_server(server)
-#        OTC.conn.compute.wait_for_server(server,"SHUTOFF")
-#
-#        vas = OTC.conn.compute.volume_attachments(server)
-#        for va in vas:
-#            OTC.conn.compute.delete_volume_attachment(va,
-#                                                      server,
-#                                                      ignore_missing=True)
-#
-#            OTC.conn.block_store.delete_volume(va.volume_id,
-#                                               ignore_missing=True)
-#            print "delete volume:", va
-#
-#        OTC.conn.compute.delete_server(sid, ignore_missing=True)
-#        print "delete server:", server
-#        while True:
-#            s = OTC.conn.compute.find_server(sid, ignore_missing=True)
-#            if not s:
-#                break
-#            time.sleep(3)
-#
-#    networks = OTC.conn.network.networks(name=router.id)
-#    for network in networks:
-#        ports = OTC.conn.network.ports(network_id=network.id)
-#        for port in ports:
-#            OTC.conn.network.delete_port(port)
-#            print "delete port:", port
-#
-#        subnets = OTC.conn.network.subnets(network_id=network.id)
-#        for s in subnets:
-#            OTC.conn.network.delete_subnet(s)
-#            print "delete subnet:", s
-#
-#        OTC.conn.network.delete_network(network)
-#        print "delete network:", network
-#
-#    OTC.conn.network.delete_router(router)
-#    print "delete router:", router

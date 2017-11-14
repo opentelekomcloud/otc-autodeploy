@@ -7,7 +7,8 @@ pip install os_client_config
 pip install shade 
 pip install tabulate 
 pip install humanfriendly 
-pip install python-openstackclient
+pip install python-openstackclient 
+pip install paramiko 
 ```
 **Usage**
 1. Fill the parameters like `user`, `password`,`user_domain` and others in `./conf/user.conf`

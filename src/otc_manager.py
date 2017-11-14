@@ -32,6 +32,8 @@ class OTCManager(object):
         self.project_id = None
         self.router = None
         self.networks = []
+        self.flavors = {}
+        self.images = {}
 
     def create_connection(self):
         init_env()
@@ -59,6 +61,9 @@ class OTCManager(object):
                 self.networks = self.cloud.list_networks(
                     filters={'name':self.router.id}
                 )
+
+        self.flavors = {f.name: f for f in OTC.cloud.list_flavors()}
+        self.images = {i.name: i for i in OTC.cloud.list_images()}
 
 
 OTC = OTCManager()

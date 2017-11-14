@@ -6,6 +6,7 @@ from src.cli import CONF
 from src.otc_manager import OTC
 from src.deploy_vpc import undeploy_vpc
 from src.deploy_win_app_exchange import deploy_winapp_exchange
+from src.deploy_chef_base import deploy_chef_base
 from src.show import Show
 from src.excepts import DeployException
 
@@ -18,7 +19,8 @@ def main():
         Show.show()
 
     deploy = {
-        'winapp-exchange': deploy_winapp_exchange
+        'winapp-exchange': deploy_winapp_exchange,
+        'chef-base': deploy_chef_base
     }
 
     undeploy = {
