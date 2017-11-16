@@ -1,6 +1,8 @@
 import ipaddr
 import time
 import pprint
+import subprocess
+import os
 
 import src.cfg as cfg
 from src.log import LOG
@@ -89,10 +91,6 @@ class Vpc(object):
 def deploy_vpc():
     print '>>> deploy vpc ' + CONF.vpc_name,
 
-    enable_snat = False
-    if CONF.vpc_enable_snat:
-        enable_snat = True
-
     vpc = Vpc(CONF.vpc_name, CONF.vpc_cidr)
 
     router = OTC.cloud.get_router(CONF.vpc_name)
@@ -102,8 +100,17 @@ def deploy_vpc():
     # create a router
     router = OTC.cloud.create_router(
         name=CONF.vpc_name,
-        enable_snat=enable_snat
     )
+
+    if CONF.vpc_enable_snat == 'yes':
+        print 'ENABLE_SNAT'
+        cmd = ["neutron", "router-gateway-set", "--enable-snat", CONF.vpc_name,
+            router.external_gateway_info['network_id']]
+        p = subprocess.Popen(' '.join(cmd),
+                            env=os.environ.copy(),
+                            shell=True)
+        p.wait()
+
     vpc.router = router
 
     print 'OK >>>'
@@ -156,19 +163,29 @@ def undeploy_vpc():
             print "delete port %s" % port.id
             OTC.cloud.delete_port(port.id)
 
+    keys = []
     for s in servers:
-        print "delete server %s %s" % (s.name, s.id)
+        print("delete server %s %s" % (s.name, s.id))
+
+        if s.key_name:
+            keys.append(s.key_name)
+
         OTC.cloud.delete_server(s.id)
+        volumes = OTC.cloud.get_volumes(s)
 
         while True:
             if not OTC.cloud.get_server(s.id):
                 break
             time.sleep(2)
 
-        volumes = OTC.cloud.get_volumes(s)
         for volume in volumes:
             print "delete volume %s" % volume.name
             OTC.cloud.delete_volume(volume.id)
+
+    all_used_keys = [s.key_name for s in OTC.cloud.list_servers()]
+    for key in (set(keys).difference(set(all_used_keys))):
+        print("delete keypair %s" % key)
+        OTC.cloud.delete_keypair(key)
 
     for router_interface in router_interfaces:
         print "remove router interface %s" % router_interface

@@ -1,49 +1,23 @@
 import paramiko
+from time import sleep
+from paramiko.ssh_exception import NoValidConnectionsError
 
 
-class OTCSSH(object):
+def ssh_connect(ip, user, passwd, identity_file):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    def __init__(self, ip, user, passwd, identity_file):
-        self.ip = ip
-        self.user = user
-        self.passwd = passwd
-        self.ifile = identity_file
-        self.client = None
-
+    for i in range(300):
         try:
-            self.client = self.__connect(ip, user, passwd, identity_file)
-        except Exception as e:
-            print(e.message)
-
-    def __connect(self, ip, user, passwd, identity_file):
-        print('ssh connect %s@%s -i %s' % (user, ip, identity_file))
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ip, port=22, username=user, password=passwd,
-                    key_filename=identity_file)
-        return ssh
-
-    def execute(self, cmds):
-        if not self.client:
-            print('  ERROR: ', self.ip, 'have not connected')
-            return
-
-        print('Exec '),
-        for cmd in cmds:
-            stdin, stdout, stderr = self.client.exec_command(cmd)
-            print(cmd + " on " + self.ip)
-            output = stdout.readlines()
-            print(' output: '),
-            if not output:
-                print('ok')
-
-            for info in output:
-                print(info)
-
-            err = stderr.readlines()
-            print(' error: '),
-            if not err:
-                print('-')
-
-            for info in err:
-                print(info)
+            print('connect to %s:%s use %s' % (ip, 22, identity_file))
+            ssh.connect(ip, port=22, username=user, password=passwd,
+                        key_filename=identity_file)
+            transport = ssh.get_transport()
+            transport.send_ignore()
+            sftp = paramiko.SFTPClient.from_transport(transport)
+            return ssh, sftp
+        except (EOFError, NoValidConnectionsError) as e:
+            sleep(2)
+            continue
+    else:
+        return None

@@ -8,6 +8,7 @@ pip install shade
 pip install tabulate 
 pip install humanfriendly 
 pip install python-openstackclient 
+pip install python-neutronclient 
 pip install paramiko 
 ```
 **Usage**

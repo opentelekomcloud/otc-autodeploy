@@ -6,6 +6,7 @@ import subprocess
 import pprint
 from src.const import CONF_PATH
 from src.utils import get_random_str
+from time import sleep
 
 
 CONF = cfg.CONF
@@ -15,7 +16,7 @@ def deploy_server(name, image_name, flavor_name, key_name, userdata,
                   userdata_file, sg_name,
                   disk_size, network_id, az='eu-de-01', eip=False):
     name = name
-    print ">>> deploy server %s" % name,
+    print ">>> deploy server %s start..." % name
 
     image = OTC.images.get(image_name)
     flavor = OTC.flavors.get(flavor_name)
@@ -23,32 +24,52 @@ def deploy_server(name, image_name, flavor_name, key_name, userdata,
     volume = OTC.cloud.create_volume(size=disk_size, name=name, image=image['id'],
                                      volume_type='SATA', availability_zone=az,
                                      wait=True)
+#     server_args = {
+#         'name': name,
+#         'boot_volume': volume.id,
+#         'flavor': flavor,
+#         'availability_zone': az,
+#         'key_name': key_name,
+#         'security_groups': [{'name': sg_name}],
+#         'network': network_id,
+#     }
+#
+#     server = OTC.cloud.create_server(wait=True, **server_args)
 
-    p = subprocess.Popen(["nova", "boot", "--boot-volume", volume.id,
-                          "--flavor", flavor['id'],
-                          "--availability-zone", az,
-                          "--security-group", sg_name, '--key-name', key_name,
-                          "--nic", "net-id=%s" % (network_id), name],
+    cmd = ["nova", "boot", "--boot-volume", volume.id,
+           "--flavor", flavor['id'], "--availability-zone", az,
+           "--security-group", sg_name, '--key-name', key_name,
+           "--nic", "net-id=%s" % (network_id), name]
+    p = subprocess.Popen(' '.join(cmd),
                          env=os.environ.copy(),
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          shell=True)
-    (stdout, stderr) = p.communicate()
+    p.wait()
 
-    server = OTC.cloud.get_server(name)
-    if not server:
+    server = None
+    for i in range(60):
+        server = OTC.cloud.get_server(name)
+        if not server:
+            sleep(2)
+            continue
+        else:
+            break
+    else:
         print "create server fail"
         raise Exception
 
     server = OTC.cloud.wait_for_server(server, auto_ip=False, reuse=False)
 
+    fip = None
     if eip:
         ports = OTC.cloud.list_ports(filters={'device_id': server.id})
         external_network = OTC.cloud.search_networks('admin_external_net')
         fip = OTC.op_conn.network.create_ip(floating_network_id=external_network[0].id,
                                             port_id=ports[0].id,
                                             bandwidth_size=10)
-    print "OK >>>"
-    return server, fip
+    print ">>> deploy server %s OK <<<" % name
+    return {'server': server,
+            'fip': fip,
+            'private_ip': OTC.cloud.get_server_private_ip(server)}
 
 
 def deploy_nat(vpc, network_id, nat_ip):
