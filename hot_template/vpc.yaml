@@ -1,0 +1,29 @@
+heat_template_version: 2014-10-16
+
+description: deploy vpc.
+
+parameters:
+  vpc_name:
+    description: name of vpc
+    type: string
+
+  cidr:
+    description: cidr of vpc
+    type: string
+
+  snat:
+    description: snat of vpc
+    type: boolean
+    default: false
+
+resources:
+  router:
+    type: OS::Neutron::Router
+    properties:
+      name: {get_param: vpc_name}
+      external_gateway_info: { network: admin_external_net, enable_snat: {get_param: snat} }
+
+outputs:
+  vpc_id:
+    description: The id of vpc.
+    value: {get_resource: router}

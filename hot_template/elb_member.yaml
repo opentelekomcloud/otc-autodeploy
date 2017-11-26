@@ -1,0 +1,27 @@
+heat_template_version: 2014-10-16
+
+description: deploy base network for daimler-demo.
+
+parameters:
+  listener_id:
+    description: Id of elb_listener
+    type: string
+
+  server_id:
+    description: Id of elb_server
+    type: string
+
+  server_addr:
+    description: address of elb_server 
+    type: string
+
+resources:
+
+  elb_member: 
+    type: OSE::ELB::Member 
+    properties: 
+      listener_id: { get_param: listener_id } 
+      members: 
+        - server_id: { get_param: server_id } 
+          address: { get_param: server_addr } 
+

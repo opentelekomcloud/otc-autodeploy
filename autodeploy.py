@@ -10,6 +10,7 @@ from src.deploy_chef_base import deploy as deploy_chef_base
 from src.deploy_chef_apache import deploy as deploy_chef_apache
 from src.show import Show
 from src.excepts import DeployException
+from src.deploy_daimler_demo import deploy as deploy_daimler_demo
 
 
 def main():
@@ -22,7 +23,8 @@ def main():
     deploy = {
         'winapp-exchange': deploy_winapp_exchange,
         'chef-base': deploy_chef_base,
-        'chef-apache': deploy_chef_apache
+        'chef-apache': deploy_chef_apache,
+        'daimler-demo': deploy_daimler_demo
     }
 
     undeploy = {

@@ -1,0 +1,44 @@
+heat_template_version: 2014-10-16
+
+description: deploy subnet.
+
+parameters:
+  vpc_id:
+    description: id of vpc
+    type: string
+
+  name:
+    description: name of subnet
+    type: string
+
+  cidr:
+    description: cidr of subnet
+    type: string
+
+resources:
+  net:
+    type: OS::Neutron::Net
+
+  subnet:
+    name: {get_param: name}
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: net }
+      cidr: { get_param: cidr }
+      dns_nameservers: [ "100.125.4.25", "8.8.8.8" ]
+      ip_version: 4
+
+  subnet_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_param: vpc_id }
+      subnet: { get_resource: subnet }
+
+outputs:
+  net_id:
+    description: Network id.
+    value: { get_resource: net}
+
+  subnet_id:
+    description: Subnet id.
+    value: { get_resource: subnet}

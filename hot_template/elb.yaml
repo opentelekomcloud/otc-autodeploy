@@ -1,0 +1,56 @@
+heat_template_version: 2014-10-16
+
+description: deploy elb.
+
+parameters:
+  vpc:
+    description: Id or name of vpc
+    type: string
+
+  name:
+    description: name of elb
+    type: string
+
+  elb_type:
+    description: type of elb
+    type: string
+    default: External
+
+  bandwidth:
+    description: bd of elb
+    type: number
+    default: 10
+
+resources:
+  elb_loadbalancer: 
+    type: OSE::ELB::LoadBalancer 
+    properties: 
+      name: { get_param: name }
+      vpc_id: { get_param: vpc } 
+      type: { get_param: elb_type }
+      bandwidth: { get_param: bandwidth }
+      admin_state_up: true 
+
+  elb_listener: 
+    type: OSE::ELB::Listener 
+    properties: 
+      name: elb_listener 
+      loadbalancer_id: { get_resource: elb_loadbalancer } 
+      protocol: HTTP 
+      port: 8080 
+      backend_protocol: HTTP 
+      backend_port: 8080 
+      lb_algorithm: leastconn 
+      sticky_session_type: insert 
+
+  elb_healthcheck: 
+    type: OSE::ELB::HealthCheck 
+    properties: 
+      listener_id: { get_resource: elb_listener } 
+      healthcheck_protocol: HTTP 
+      healthcheck_timeout: 2 
+      unhealthy_threshold: 3 
+      healthcheck_interval: 5 
+      healthy_threshold: 3 
+      healthcheck_connect_port: 8080 
+      healthcheck_uri: / 

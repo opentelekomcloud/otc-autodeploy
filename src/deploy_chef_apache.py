@@ -80,6 +80,8 @@ def deploy():
     chef = ChefApache()
     chef.deploy_chef_net()
 
+    if True: return
+
     t1 = Thread(target=chef.deploy_chef_server)
     t2 = Thread(target=chef.deploy_chef_workstation)
     t3 = Thread(target=chef.deploy_chef_apache)

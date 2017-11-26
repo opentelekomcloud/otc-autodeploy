@@ -1,0 +1,26 @@
+heat_template_version: 2014-10-16
+
+description: deploy security-group.
+
+parameters:
+  name:
+    description: name of vpc
+    type: string
+    default: name os sg
+
+  rules:
+    type: comma_delimited_list
+    description: rules of sg 
+
+resources:
+  sg:
+    type: OS::Neutron::SecurityGroup
+    properties:
+        description: String
+        name: String
+        rules: { get_param: rules }
+
+outputs:
+  nat_eip:
+    description: id of security group.
+    value: { get_resource: sg }

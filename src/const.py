@@ -15,6 +15,7 @@ CONF_PATH = os.path.join(ROOT_PATH, 'conf')
 SRC_PATH = os.path.join(ROOT_PATH, 'src')
 SRC_TEMPLATE_PATH = os.path.join(SRC_PATH, 'template')
 SSH_PATH = os.path.join(ROOT_PATH, 'ssh')
+HOT_TEMPLATE_PATH = os.path.join(ROOT_PATH, 'hot_template')
 
 # server state
 SERVER_STATE_INIT = 0
